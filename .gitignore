@@ -1,0 +1,15 @@
+# Clojure / tooling
+.cpcache/
+.nrepl-port
+.lsp/
+.clj-kondo/.cache/
+target/
+
+# devenv / nix / direnv
+.devenv/
+.devenv.flake.nix
+devenv.local.nix
+.direnv/
+
+# local overrides
+*.log
