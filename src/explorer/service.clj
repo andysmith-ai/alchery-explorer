@@ -52,9 +52,10 @@
       (do (api/add-note (:text (params (slurp (.getRequestBody exchange))))) (redirect! exchange "/"))
 
       (and (= method "GET") (str/starts-with? path "/node/"))
-      (if-let [n (api/get-node (subs path (count "/node/")))]
-        (html! exchange 200 (views/node n))
-        (html! exchange 404 (views/not-found)))
+      (let [id (subs path (count "/node/"))]
+        (if-let [n (api/get-node id)]
+          (html! exchange 200 (views/node n (api/chunks id)))
+          (html! exchange 404 (views/not-found))))
 
       :else
       (html! exchange 404 (views/not-found)))))

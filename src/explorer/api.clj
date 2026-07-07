@@ -37,3 +37,7 @@
 (defn get-node [id]
   (let [{:keys [status body]} (send-req :get (str "/nodes/" id) nil)]
     (when (= 200 status) body)))
+
+(defn chunks [id]
+  (let [b (:body (send-req :get (str "/nodes/" id "/chunks") nil))]
+    (when (sequential? b) b)))

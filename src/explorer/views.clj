@@ -24,7 +24,29 @@ button { padding: .5rem 1rem; font: inherit; cursor: pointer; border: 0; backgro
 .empty { color: #888; }
 .detail .body { white-space: pre-wrap; word-wrap: break-word; background: #f7f7f7;
   padding: 1rem; border-radius: 6px; max-height: 60vh; overflow: auto; }
+.chunks h3 { color: #444; margin: 1.2rem 0 .4rem; }
+.chunk { border-left: 3px solid #e3e3e3; padding: .2rem 0 .2rem .8rem; margin: .7rem 0; }
+.chunk-meta { color: #aaa; font-size: 11px; margin-bottom: .2rem; }
+.chunk-text { white-space: pre-wrap; word-wrap: break-word; }
+.carousel-nav { display: flex; align-items: center; gap: .8rem; margin: 1rem 0 .6rem; }
+.carousel-nav button { background: #eee; color: #333; border: 0; border-radius: 6px;
+  width: 2rem; height: 2rem; font-size: 1.1rem; cursor: pointer; }
+.carousel-label { color: #666; font-size: 13px; }
+.carousel-panels .panel img { max-width: 100%; border-radius: 6px; }
 a { color: #06c; }
+")
+
+(def ^:private carousel-js "
+(function(){
+  var panels=[].slice.call(document.querySelectorAll('.carousel .panel'));
+  if(!panels.length)return;
+  var i=0, label=document.querySelector('.carousel-label');
+  function show(){panels.forEach(function(p,j){p.style.display=(j===i?'block':'none');});
+    label.textContent=panels[i].getAttribute('data-label');}
+  document.querySelector('.carousel .prev').onclick=function(){i=(i-1+panels.length)%panels.length;show();};
+  document.querySelector('.carousel .next').onclick=function(){i=(i+1)%panels.length;show();};
+  show();
+})();
 ")
 
 (defn- clip [s n] (let [s (or s "")] (subs s 0 (min (count s) n))))
@@ -71,14 +93,34 @@ a { color: #06c; }
       (into [:section.results] (map card nodes))
       [:p.empty (if q "nothing found" "nothing here yet — ingest a url above")])))
 
-(defn node [n]
-  (page (or (:title n) "node")
-    [:article.detail
-     [:div.meta [:span.kind (:kind n)]]
-     [:h1 (or (:title n) (:id n))]
-     (when-let [u (:url n)] [:div.url [:a {:href u :target "_blank" :rel "noopener"} u]])
-     [:pre.body (or (:text n) "")]]
-    [:p [:a {:href "/"} "← back"]]))
+(defn- chunk-panel [chunks]
+  (into [:section.panel {:data-label (str "chunks (" (count chunks) ")")}]
+        (map (fn [c] [:div.chunk
+                      [:div.chunk-meta (str "#" (:idx c)
+                                            (when (seq (:heading c)) (str " · " (:heading c))))]
+                      [:div.chunk-text (:text c)]])
+             chunks)))
+
+(defn node [n chunks]
+  (let [panels (cond-> []
+                 (:image n)   (conj [:section.panel {:data-label "image"}
+                                     [:img {:src (:image n) :alt (:title n)}]])
+                 :always      (conj [:section.panel {:data-label "full text"}
+                                     [:pre.body (or (:text n) "")]])
+                 (seq chunks) (conj (chunk-panel chunks)))]
+    (page (or (:title n) "node")
+      [:article.detail
+       [:div.meta [:span.kind (:kind n)]]
+       [:h1 (or (:title n) (:id n))]
+       (when-let [u (:url n)] [:div.url [:a {:href u :target "_blank" :rel "noopener"} u]])
+       [:div.carousel
+        [:div.carousel-nav
+         [:button.prev {:type "button"} "‹"]
+         [:span.carousel-label]
+         [:button.next {:type "button"} "›"]]
+        (into [:div.carousel-panels] panels)]]
+      [:p [:a {:href "/"} "← back"]]
+      [:script (h/raw carousel-js)])))
 
 (defn not-found []
   (page "not found" [:p "not found"] [:p [:a {:href "/"} "← back"]]))
