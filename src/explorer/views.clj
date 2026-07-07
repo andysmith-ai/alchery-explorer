@@ -22,30 +22,44 @@ button { padding: .5rem 1rem; font: inherit; cursor: pointer; border: 0; backgro
 .title:hover { text-decoration: underline; }
 .url a { color: #888; font-size: 12px; word-break: break-all; }
 .empty { color: #888; }
-.detail .body { white-space: pre-wrap; word-wrap: break-word; background: #f7f7f7;
-  padding: 1rem; border-radius: 6px; max-height: 60vh; overflow: auto; }
-.chunks h3 { color: #444; margin: 1.2rem 0 .4rem; }
-.chunk { border-left: 3px solid #e3e3e3; padding: .2rem 0 .2rem .8rem; margin: .7rem 0; }
-.chunk-meta { color: #aaa; font-size: 11px; margin-bottom: .2rem; }
-.chunk-text { white-space: pre-wrap; word-wrap: break-word; }
-.carousel-nav { display: flex; align-items: center; gap: .8rem; margin: 1rem 0 .6rem; }
+a { color: #06c; }
+
+/* node view: a native horizontal slider (trackpad / touch) of vertically-scrolling panels */
+.carousel-nav { display: flex; align-items: center; gap: .8rem; margin: 1rem 0 .5rem; }
 .carousel-nav button { background: #eee; color: #333; border: 0; border-radius: 6px;
   width: 2rem; height: 2rem; font-size: 1.1rem; cursor: pointer; }
 .carousel-label { color: #666; font-size: 13px; }
-.carousel-panels .panel img { max-width: 100%; border-radius: 6px; }
-a { color: #06c; }
+.carousel-panels { display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+  scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+.carousel-panels::-webkit-scrollbar { height: 0; }
+.panel { flex: 0 0 100%; scroll-snap-align: start; height: 64vh; overflow-y: auto; padding-right: .5rem; }
+.panel img { max-width: 100%; border-radius: 6px; }
+.body { white-space: pre-wrap; word-wrap: break-word; background: #f7f7f7;
+  padding: 1rem; border-radius: 6px; margin: 0; }
+
+/* chunks: a schematic list of numbered fragments */
+.chunk { display: flex; gap: .7rem; align-items: flex-start; padding: .55rem 0; border-top: 1px solid #eee; }
+.chunk:first-child { border-top: 0; }
+.chunk-idx { flex: 0 0 1.6rem; height: 1.6rem; border-radius: 999px; background: #e6eef8;
+  color: #06c; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+.chunk-body { flex: 1; min-width: 0; }
+.chunk-head { font-size: 12px; font-weight: 600; color: #667; margin-bottom: .1rem; }
+.chunk-text { white-space: pre-wrap; word-wrap: break-word; color: #333; }
 ")
 
 (def ^:private carousel-js "
 (function(){
-  var panels=[].slice.call(document.querySelectorAll('.carousel .panel'));
-  if(!panels.length)return;
-  var i=0, label=document.querySelector('.carousel-label');
-  function show(){panels.forEach(function(p,j){p.style.display=(j===i?'block':'none');});
-    label.textContent=panels[i].getAttribute('data-label');}
-  document.querySelector('.carousel .prev').onclick=function(){i=(i-1+panels.length)%panels.length;show();};
-  document.querySelector('.carousel .next').onclick=function(){i=(i+1)%panels.length;show();};
-  show();
+  var wrap=document.querySelector('.carousel-panels');
+  if(!wrap)return;
+  var panels=[].slice.call(wrap.children);
+  var label=document.querySelector('.carousel-label');
+  function cur(){return Math.round(wrap.scrollLeft/wrap.clientWidth);}
+  function upd(){var i=cur();label.textContent=(panels[i]?panels[i].getAttribute('data-label'):'');}
+  function go(i){i=Math.max(0,Math.min(panels.length-1,i));wrap.scrollTo({left:i*wrap.clientWidth,behavior:'smooth'});}
+  document.querySelector('.carousel .prev').onclick=function(){go(cur()-1);};
+  document.querySelector('.carousel .next').onclick=function(){go(cur()+1);};
+  wrap.addEventListener('scroll',upd);
+  upd();
 })();
 ")
 
@@ -94,11 +108,12 @@ a { color: #06c; }
       [:p.empty (if q "nothing found" "nothing here yet — ingest a url above")])))
 
 (defn- chunk-panel [chunks]
-  (into [:section.panel {:data-label (str "chunks (" (count chunks) ")")}]
+  (into [:section.panel {:data-label (str "chunks · " (count chunks))}]
         (map (fn [c] [:div.chunk
-                      [:div.chunk-meta (str "#" (:idx c)
-                                            (when (seq (:heading c)) (str " · " (:heading c))))]
-                      [:div.chunk-text (:text c)]])
+                      [:span.chunk-idx (:idx c)]
+                      [:div.chunk-body
+                       (when (seq (:heading c)) [:div.chunk-head (:heading c)])
+                       [:div.chunk-text (:text c)]]])
              chunks)))
 
 (defn node [n chunks]
