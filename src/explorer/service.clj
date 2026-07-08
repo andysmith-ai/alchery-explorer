@@ -30,13 +30,16 @@
 (defn- seqable [x] (when (sequential? x) x))
 
 (defn- home [exchange]
-  (let [{:keys [q mode]} (params (.getQuery (.getRequestURI exchange)))
+  (let [{:keys [q mode collection]} (params (.getQuery (.getRequestURI exchange)))
         q     (some-> q str/trim not-empty)
+        cols  (api/collections)
+        cur   (when collection (first (filter #(= (:id %) collection) cols)))
         nodes (seqable (cond
+                         collection      (api/members collection)
                          (nil? q)        (api/list-nodes {:limit 30})
                          (= mode "text") (api/list-nodes {:q q :limit 30})
                          :else           (api/search q 20)))]
-    (html! exchange 200 (views/home {:q q :mode mode :nodes nodes}))))
+    (html! exchange 200 (views/home {:q q :mode mode :nodes nodes :collections cols :collection cur}))))
 
 (defn- route [exchange]
   (let [method (.getRequestMethod exchange)
@@ -51,10 +54,23 @@
       (and (= method "POST") (= path "/note"))
       (do (api/add-note (:text (params (slurp (.getRequestBody exchange))))) (redirect! exchange "/"))
 
+      (and (= method "POST") (str/starts-with? path "/node/") (str/ends-with? path "/collect"))
+      (let [id   (subs path (count "/node/") (- (count path) (count "/collect")))
+            name (:collection (params (slurp (.getRequestBody exchange))))]
+        (when-not (str/blank? name)
+          (api/add-to-collection (:id (api/ensure-collection name)) id))
+        (redirect! exchange (str "/node/" id)))
+
+      (and (= method "POST") (str/starts-with? path "/node/") (str/ends-with? path "/uncollect"))
+      (let [id  (subs path (count "/node/") (- (count path) (count "/uncollect")))
+            cid (:collection (params (slurp (.getRequestBody exchange))))]
+        (api/remove-from-collection cid id)
+        (redirect! exchange (str "/node/" id)))
+
       (and (= method "GET") (str/starts-with? path "/node/"))
       (let [id (subs path (count "/node/"))]
         (if-let [n (api/get-node id)]
-          (html! exchange 200 (views/node n (api/chunks id)))
+          (html! exchange 200 (views/node n (api/chunks id) (api/node-collections id)))
           (html! exchange 404 (views/not-found))))
 
       :else

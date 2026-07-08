@@ -41,3 +41,12 @@
 (defn chunks [id]
   (let [b (:body (send-req :get (str "/nodes/" id "/chunks") nil))]
     (when (sequential? b) b)))
+
+;; collections
+(defn collections [] (let [b (:body (send-req :get "/collections" nil))] (when (sequential? b) b)))
+(defn members [cid] (let [b (:body (send-req :get (str "/collections/" cid) nil))] (when (sequential? b) b)))
+(defn node-collections [id]
+  (let [b (:body (send-req :get (str "/nodes/" id "/collections") nil))] (when (sequential? b) b)))
+(defn ensure-collection    [name]     (:body (send-req :post "/collections" {:name name})))
+(defn add-to-collection    [cid node] (send-req :post (str "/collections/" cid "/add") {:node node}))
+(defn remove-from-collection [cid node] (send-req :post (str "/collections/" cid "/remove") {:node node}))

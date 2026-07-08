@@ -24,6 +24,20 @@ button { padding: .5rem 1rem; font: inherit; cursor: pointer; border: 0; backgro
 .empty { color: #888; }
 a { color: #06c; }
 
+.collections { display: flex; flex-wrap: wrap; gap: .4rem; margin: .2rem 0 1rem; }
+.chip { display: inline-flex; align-items: center; gap: .2rem; font-size: 13px;
+  padding: .2rem .6rem; border: 1px solid #ddd; border-radius: 999px; color: #555; text-decoration: none; }
+.chip.on { background: #06c; color: #fff; border-color: #06c; }
+.coll-title { color: #444; margin: .3rem 0 1rem; }
+.node-collections { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .7rem 0; }
+.chip.member { background: #eef3fb; border-color: #dbe6f6; color: #06c; }
+.chip.member form { display: inline; margin: 0; }
+.chip-x { background: none; color: inherit; border: 0; padding: 0; margin-left: .1rem; cursor: pointer; font-size: 14px; }
+.add-collection { display: inline-flex; gap: .3rem; margin: 0; }
+.add-collection input { border: 1px solid #ddd; border-radius: 999px; padding: .2rem .6rem;
+  font-size: 13px; width: 12rem; flex: 0 0 auto; }
+.add-collection button { padding: .2rem .7rem; border-radius: 999px; }
+
 /* node view: a native horizontal slider (trackpad / touch) of vertically-scrolling panels */
 .carousel-nav { display: flex; align-items: center; gap: .8rem; margin: 1rem 0 .5rem; }
 .carousel-nav button { background: #eee; color: #333; border: 0; border-radius: 6px;
@@ -87,7 +101,15 @@ a { color: #06c; }
            [:header [:a.brand {:href "/"} "alchery"]]
            (into [:main] body)]])))
 
-(defn home [{:keys [q mode nodes]}]
+(defn- collection-chips [collections active]
+  (into [:nav.collections
+         [:a {:class (str "chip" (when-not active " on")) :href "/"} "all"]]
+        (map (fn [c] [:a {:class (str "chip" (when (= (:id c) (:id active)) " on"))
+                          :href (str "/?collection=" (:id c))}
+                      (str (:name c) " · " (:size c))])
+             collections)))
+
+(defn home [{:keys [q mode nodes collections collection]}]
   (page "alchery explorer"
     [:section.tools
      [:form.tool {:method "post" :action "/ingest"}
@@ -103,9 +125,13 @@ a { color: #06c; }
      [:label [:input {:type "radio" :name "mode" :value "text"
                       :checked (= mode "text")}] " text"]
      [:button "search"]]
+    (when (seq collections) (collection-chips collections collection))
+    (when collection [:h2.coll-title (str "▸ " (:name collection))])
     (if (seq nodes)
       (into [:section.results] (map card nodes))
-      [:p.empty (if q "nothing found" "nothing here yet — ingest a url above")])))
+      [:p.empty (cond collection "empty collection"
+                      q          "nothing found"
+                      :else      "nothing here yet — ingest a url above")])))
 
 (defn- chunk-panel [chunks]
   (into [:section.panel {:data-label (str "chunks · " (count chunks))}]
@@ -116,7 +142,7 @@ a { color: #06c; }
                        [:div.chunk-text (:text c)]]])
              chunks)))
 
-(defn node [n chunks]
+(defn node [n chunks node-cols]
   (let [panels (cond-> []
                  (:image n)   (conj [:section.panel {:data-label "image"}
                                      [:img {:src (:image n) :alt (:title n)}]])
@@ -128,6 +154,15 @@ a { color: #06c; }
        [:div.meta [:span.kind (:kind n)]]
        [:h1 (or (:title n) (:id n))]
        (when-let [u (:url n)] [:div.url [:a {:href u :target "_blank" :rel "noopener"} u]])
+       [:div.node-collections
+        (map (fn [c] [:span.chip.member (:name c)
+                      [:form {:method "post" :action (str "/node/" (:id n) "/uncollect")}
+                       [:input {:type "hidden" :name "collection" :value (:id c)}]
+                       [:button.chip-x {:type "submit" :title "remove"} "×"]]])
+             node-cols)
+        [:form.add-collection {:method "post" :action (str "/node/" (:id n) "/collect")}
+         [:input {:name "collection" :placeholder "add to collection…"}]
+         [:button "+"]]]
        [:div.carousel
         [:div.carousel-nav
          [:button.prev {:type "button"} "‹"]
