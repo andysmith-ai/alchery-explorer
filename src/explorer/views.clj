@@ -145,7 +145,7 @@ a { color: #06c; }
 (defn node [n chunks node-cols]
   (let [panels (cond-> []
                  (:image n)   (conj [:section.panel {:data-label "image"}
-                                     [:img {:src (:image n) :alt (:title n)}]])
+                                     [:img {:src (str "/node/" (:id n) "/image") :alt (:title n)}]])
                  :always      (conj [:section.panel {:data-label "full text"}
                                      [:pre.body (or (:text n) "")]])
                  (seq chunks) (conj (chunk-panel chunks)))]

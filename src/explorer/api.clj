@@ -38,6 +38,11 @@
   (let [{:keys [status body]} (send-req :get (str "/nodes/" id) nil)]
     (when (= 200 status) body)))
 
+(defn image-bytes [id]
+  (let [req (.build (HttpRequest/newBuilder (URI/create (str (config/api-url) "/nodes/" id "/image"))))
+        r   (.send (HttpClient/newHttpClient) req (HttpResponse$BodyHandlers/ofByteArray))]
+    (when (= 200 (.statusCode r)) (.body r))))
+
 (defn chunks [id]
   (let [b (:body (send-req :get (str "/nodes/" id "/chunks") nil))]
     (when (sequential? b) b)))

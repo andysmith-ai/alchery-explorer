@@ -67,6 +67,14 @@
         (api/remove-from-collection cid id)
         (redirect! exchange (str "/node/" id)))
 
+      (and (= method "GET") (str/starts-with? path "/node/") (str/ends-with? path "/image"))
+      (let [id (subs path (count "/node/") (- (count path) (count "/image")))]
+        (if-let [b (api/image-bytes id)]
+          (do (.add (.getResponseHeaders exchange) "Content-Type" "image/png")
+              (.sendResponseHeaders exchange 200 (alength b))
+              (with-open [os (.getResponseBody exchange)] (.write os b)))
+          (html! exchange 404 (views/not-found))))
+
       (and (= method "GET") (str/starts-with? path "/node/"))
       (let [id (subs path (count "/node/"))]
         (if-let [n (api/get-node id)]
